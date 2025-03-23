@@ -3,7 +3,7 @@ using System.Numerics;
 using ImGuiNET;
 using Dalamud.Interface.Utility.Raii;
 
-namespace ZoomiesPlugin.Windows
+namespace ZoomiesPlugin.Renderers
 {
     public class NyanCatRenderer : IDisposable
     {
@@ -17,8 +17,6 @@ namespace ZoomiesPlugin.Windows
         private float animationTimer;
         // Frame counter for animation
         private int frameCounter;
-        // Stores whether the user clicked the close button
-        private bool closeButtonClicked;
         // Trail segments
         private const int MaxTrailSegments = 50;
         private int trailSegments;
@@ -33,7 +31,6 @@ namespace ZoomiesPlugin.Windows
         {
             // Set default values
             maxYalms = 20.0f;
-            closeButtonClicked = false;
             animationTimer = 0f;
             frameCounter = 0;
             previousDisplayYalms = 0f;
@@ -52,7 +49,7 @@ namespace ZoomiesPlugin.Windows
             rainbowColors[5] = ImGui.ColorConvertFloat4ToU32(new Vector4(0.5f, 0.0f, 1.0f, 0.8f)); // Purple
 
             // Get the path to the nyan.png file
-            string pluginPath = Plugin.PluginInterface.AssemblyLocation.Directory?.FullName!;
+            string pluginPath = ZoomiesPlugin.Core.Plugin.PluginInterface.AssemblyLocation.Directory?.FullName!;
             nyanCatImagePath = System.IO.Path.Combine(pluginPath, "nyan.png");
         }
 
@@ -62,13 +59,10 @@ namespace ZoomiesPlugin.Windows
             maxYalms = Math.Max(newMax, 5.0f); // Ensure a minimum value
         }
 
-        // Check if the close button was clicked
+        // Check if the close button was clicked - always return false now
         public bool WasCloseButtonClicked()
         {
-            // Reset state after reading
-            bool wasClicked = closeButtonClicked;
-            closeButtonClicked = false;
-            return wasClicked;
+            return false;
         }
 
         // Main rendering method
@@ -141,9 +135,74 @@ namespace ZoomiesPlugin.Windows
             // Draw cat (using image or fallback to enhanced drawing)
             DrawCat(drawList, catPos, displayYalms);
 
-            // Draw close button
-            Vector2 closeButtonPos = new Vector2(windowPos.X + windowSize.X - 20, windowPos.Y + 20);
-            DrawCloseButton(drawList, closeButtonPos, 10);
+            // Draw speed text above the cat
+            DrawSpeedText(drawList, catPos, displayYalms);
+        }
+
+        // New method to draw the speed text
+        private void DrawSpeedText(ImDrawListPtr drawList, Vector2 catPos, float displayYalms)
+        {
+            // Format the speed text (show to 1 decimal place)
+            string speedText = $"{displayYalms:F1} y/s";
+
+            // Calculate position above the poptart/toast part
+            Vector2 textSize = ImGui.CalcTextSize(speedText);
+
+            // Determine poptart position (adjust based on the screenshot)
+            // The toast part starts about 10 pixels from the left of cat position
+            // and is about 65% of total cat width
+            float toastWidth = catSize.X * 0.65f;
+            float toastCenter = catPos.X + 10 + (toastWidth / 2);
+
+            // Position the text centered above the toast/poptart part
+            // Adding a slight offset to the left (-15 pixels)
+            Vector2 textPos = new Vector2(
+                toastCenter - (textSize.X / 2) - 6, // Center above toast/poptart with left offset
+                catPos.Y - textSize.Y - 5 // 5 pixels above cat
+            );
+
+            // Calculate speed ratio here to fix the reference error
+            float speedRatio = Math.Clamp(displayYalms / maxYalms, 0.0f, 1.0f);
+
+            // Draw main text with rainbow color based on speed
+            uint textColor;
+            if (displayYalms < 0.5f)
+            {
+                // White when nearly stopped
+                textColor = ImGui.ColorConvertFloat4ToU32(new Vector4(1.0f, 1.0f, 1.0f, 1.0f));
+            }
+            else
+            {
+                // Get a color from rainbow based on speed
+                int colorIndex = Math.Min((int)(speedRatio * rainbowColors.Length), rainbowColors.Length - 1);
+                textColor = rainbowColors[colorIndex];
+            }
+
+            // Add padding around text for the shadow box
+            float padding = 5.0f;
+            Vector2 boxMin = new Vector2(textPos.X - padding, textPos.Y - padding);
+            Vector2 boxMax = new Vector2(textPos.X + textSize.X + padding, textPos.Y + textSize.Y + padding);
+
+            // Draw shadow box with semi-transparent black background
+            drawList.AddRectFilled(
+                boxMin,
+                boxMax,
+                ImGui.ColorConvertFloat4ToU32(new Vector4(0.0f, 0.0f, 0.0f, 0.7f)),
+                4.0f // Rounded corners
+            );
+
+            // Draw border around the box with a color matching the text
+            drawList.AddRect(
+                boxMin,
+                boxMax,
+                textColor,
+                4.0f, // Rounded corners
+                ImDrawFlags.None,
+                2.0f  // Border thickness
+            );
+
+            // Draw the text
+            drawList.AddText(textPos, textColor, speedText);
         }
 
         // Draw the rainbow trail
@@ -203,7 +262,7 @@ namespace ZoomiesPlugin.Windows
             Vector2 adjustedPos = new Vector2(catPos.X, catPos.Y + bounce);
 
             // Load the texture using the sample plugin approach
-            var texture = Plugin.TextureProvider.GetFromFile(nyanCatImagePath).GetWrapOrDefault();
+            var texture = ZoomiesPlugin.Core.Plugin.TextureProvider.GetFromFile(nyanCatImagePath).GetWrapOrDefault();
 
             // If texture is available, use it
             if (texture != null)
@@ -368,42 +427,6 @@ namespace ZoomiesPlugin.Windows
                 pinkColor,
                 4.0f
             );
-        }
-
-        // Draw a small close button
-        private void DrawCloseButton(ImDrawListPtr drawList, Vector2 pos, float radius)
-        {
-            // Check if mouse is over button
-            Vector2 mousePos = ImGui.GetIO().MousePos;
-            bool isHovering = Math.Pow(mousePos.X - pos.X, 2) + Math.Pow(mousePos.Y - pos.Y, 2) <= radius * radius;
-
-            // Draw button circle
-            uint buttonColor = isHovering ?
-                ImGui.ColorConvertFloat4ToU32(new Vector4(1.0f, 0.3f, 0.3f, 1.0f)) :
-                ImGui.ColorConvertFloat4ToU32(new Vector4(0.7f, 0.1f, 0.1f, 0.8f));
-
-            drawList.AddCircleFilled(pos, radius, buttonColor);
-
-            // Draw X
-            float xSize = radius * 0.7f;
-            drawList.AddLine(
-                new Vector2(pos.X - xSize / 2, pos.Y - xSize / 2),
-                new Vector2(pos.X + xSize / 2, pos.Y + xSize / 2),
-                ImGui.ColorConvertFloat4ToU32(new Vector4(1.0f, 1.0f, 1.0f, 0.8f)),
-                1.5f
-            );
-            drawList.AddLine(
-                new Vector2(pos.X + xSize / 2, pos.Y - xSize / 2),
-                new Vector2(pos.X - xSize / 2, pos.Y + xSize / 2),
-                ImGui.ColorConvertFloat4ToU32(new Vector4(1.0f, 1.0f, 1.0f, 0.8f)),
-                1.5f
-            );
-
-            // Handle click
-            if (isHovering && ImGui.IsMouseClicked(ImGuiMouseButton.Left))
-            {
-                closeButtonClicked = true;
-            }
         }
 
         // Dispose method

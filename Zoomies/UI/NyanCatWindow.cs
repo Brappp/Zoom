@@ -2,8 +2,11 @@ using System;
 using System.Numerics;
 using Dalamud.Interface.Windowing;
 using ImGuiNET;
+using ZoomiesPlugin.Core;
+using ZoomiesPlugin.Helpers;
+using ZoomiesPlugin.Renderers;
 
-namespace ZoomiesPlugin.Windows
+namespace ZoomiesPlugin.UI
 {
     public class NyanCatWindow : Window, IDisposable
     {
@@ -20,6 +23,9 @@ namespace ZoomiesPlugin.Windows
             // Set a default size for the window
             Size = new Vector2(450, 150);
             SizeCondition = ImGuiCond.FirstUseEver;
+
+            // Disable ESC key closing the window
+            RespectCloseHotkey = false;
 
             // Get configuration
             var config = Plugin.PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
@@ -51,12 +57,6 @@ namespace ZoomiesPlugin.Windows
 
             // Render the Nyan Cat
             nyanRenderer.Render(yalmsCalculator.GetDisplayYalms());
-
-            // Check if close button was clicked
-            if (nyanRenderer.WasCloseButtonClicked())
-            {
-                this.Toggle();
-            }
         }
 
         // Toggle method to show or hide the window
@@ -85,6 +85,18 @@ namespace ZoomiesPlugin.Windows
         public NyanCatRenderer GetRenderer()
         {
             return nyanRenderer;
+        }
+
+        // Update damping from config
+        public void UpdateDamping(float damping)
+        {
+            yalmsCalculator.SetDamping(damping);
+        }
+
+        // Update max speed from config
+        public void UpdateMaxSpeed(float maxSpeed)
+        {
+            nyanRenderer.SetMaxYalms(maxSpeed);
         }
     }
 }

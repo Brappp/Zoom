@@ -2,9 +2,9 @@ using System;
 using System.Numerics;
 using ImGuiNET;
 
-namespace ZoomiesPlugin.Windows
+namespace ZoomiesPlugin.Renderers
 {
-    public class YalmsRenderer
+    public class ClassicRenderer
     {
         // Maximum yalms value
         private float maxYalms;
@@ -16,15 +16,12 @@ namespace ZoomiesPlugin.Windows
         private readonly uint markingsColor;
         private readonly uint textColor;
         private readonly uint backgroundColor;
-        // Stores whether the user clicked the center close button
-        private bool closeButtonClicked;
 
-        public YalmsRenderer()
+        public ClassicRenderer()
         {
             // Set default values
             maxYalms = 20.0f;
             redlineStart = 16.0f;
-            closeButtonClicked = false;
 
             // Set colors (using RGBA format)
             backgroundColor = ImGui.ColorConvertFloat4ToU32(new Vector4(0.05f, 0.05f, 0.05f, 1.0f));
@@ -46,13 +43,10 @@ namespace ZoomiesPlugin.Windows
             redlineStart = Math.Clamp(newStart, 0.0f, maxYalms);
         }
 
-        // Check if the close button was clicked
+        // Check if the close button was clicked - always return false now
         public bool WasCloseButtonClicked()
         {
-            // Reset state after reading
-            bool wasClicked = closeButtonClicked;
-            closeButtonClicked = false;
-            return wasClicked;
+            return false;
         }
 
         // Main rendering method
@@ -72,16 +66,12 @@ namespace ZoomiesPlugin.Windows
             // Get the draw list for custom rendering
             var drawList = ImGui.GetWindowDrawList();
 
-            // Make the window draggable (except over the center button)
+            // Make the window draggable
             ImGui.SetCursorPos(Vector2.Zero);
             ImGui.InvisibleButton("##draggable", windowSize);
 
-            // Check if mouse is over center button
-            Vector2 mousePos = ImGui.GetIO().MousePos;
-            bool isOverCenter = Math.Pow(mousePos.X - center.X, 2) + Math.Pow(mousePos.Y - center.Y, 2) <= 12 * 12;
-
-            // Handle dragging if not over center
-            if (ImGui.IsItemActive() && ImGui.IsMouseDragging(ImGuiMouseButton.Left) && !isOverCenter)
+            // Handle dragging
+            if (ImGui.IsItemActive() && ImGui.IsMouseDragging(ImGuiMouseButton.Left))
             {
                 Vector2 delta = ImGui.GetIO().MouseDelta;
                 ImGui.SetWindowPos(new Vector2(windowPos.X + delta.X, windowPos.Y + delta.Y));
@@ -230,7 +220,7 @@ namespace ZoomiesPlugin.Windows
             }
         }
 
-        // Draw the needle and handle close button functionality
+        // Draw the needle (with close button functionality removed)
         private void DrawNeedle(ImDrawListPtr drawList, Vector2 center, float radius, float speedFraction)
         {
             // Clamp the speed fraction
@@ -250,38 +240,8 @@ namespace ZoomiesPlugin.Windows
             // Draw the needle
             drawList.AddLine(center, new Vector2(tipX, tipY), needleColor, 2.0f);
 
-            // Check if mouse is over center
-            Vector2 mousePos = ImGui.GetIO().MousePos;
-            bool isHovering = Math.Pow(mousePos.X - center.X, 2) + Math.Pow(mousePos.Y - center.Y, 2) <= 10 * 10;
-
-            // Set color based on hover state
-            uint baseColor = isHovering ?
-                ImGui.ColorConvertFloat4ToU32(new Vector4(0.9f, 0.2f, 0.2f, 1.0f)) :
-                needleColor;
-
-            // Draw center hub
-            drawList.AddCircleFilled(center, 10, baseColor);
-
-            // When hovering, show X and handle click
-            if (isHovering)
-            {
-                // Draw X
-                float xSize = 6;
-                drawList.AddLine(
-                    new Vector2(center.X - xSize / 2, center.Y - xSize / 2),
-                    new Vector2(center.X + xSize / 2, center.Y + xSize / 2),
-                    ImGui.ColorConvertFloat4ToU32(new Vector4(1.0f, 1.0f, 1.0f, 0.8f)), 1.5f);
-                drawList.AddLine(
-                    new Vector2(center.X + xSize / 2, center.Y - xSize / 2),
-                    new Vector2(center.X - xSize / 2, center.Y + xSize / 2),
-                    ImGui.ColorConvertFloat4ToU32(new Vector4(1.0f, 1.0f, 1.0f, 0.8f)), 1.5f);
-
-                // Handle click
-                if (ImGui.IsMouseClicked(ImGuiMouseButton.Left))
-                {
-                    closeButtonClicked = true;
-                }
-            }
+            // Draw center hub (without close button functionality)
+            drawList.AddCircleFilled(center, 10, needleColor);
 
             // Inner circle
             drawList.AddCircleFilled(center, 6, dialColor);

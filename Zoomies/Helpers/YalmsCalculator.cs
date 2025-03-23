@@ -1,7 +1,7 @@
 using System;
 using System.Numerics;
 
-namespace ZoomiesPlugin.Windows
+namespace ZoomiesPlugin.Helpers
 {
     public class YalmsCalculator
     {

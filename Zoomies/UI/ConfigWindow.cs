@@ -2,10 +2,11 @@ using System;
 using System.Numerics;
 using Dalamud.Interface.Windowing;
 using ImGuiNET;
+using ZoomiesPlugin.Core;
 
-namespace ZoomiesPlugin.Windows
+namespace ZoomiesPlugin.UI
 {
-    public class SpeedometerConfigWindow : Window, IDisposable
+    public class ConfigWindow : Window, IDisposable
     {
         private Configuration Configuration;
         private readonly Plugin Plugin;
@@ -16,26 +17,18 @@ namespace ZoomiesPlugin.Windows
         {
             "Classic Gauge",
             "Nyan Cat"
-            // Add more speedometer types here as they're developed
         };
 
         // Tooltip display toggle
         private bool showFormula = false;
 
-        public SpeedometerConfigWindow(Plugin plugin) : base("Speedometer Configuration##ConfigWindow")
+        public ConfigWindow(Plugin plugin) : base("Zoomies Configuration##ConfigWindow")
         {
             Plugin = plugin;
             Configuration = plugin.Configuration;
 
             // Initialize selected speedometer based on current state
-            if (Plugin.IsNyanSpeedometerActive())
-            {
-                selectedSpeedometerType = 1;
-            }
-            else
-            {
-                selectedSpeedometerType = 0;
-            }
+            selectedSpeedometerType = Configuration.SelectedSpeedometerType;
 
             // Set window size and flags
             Size = new Vector2(350, 200);
@@ -47,7 +40,7 @@ namespace ZoomiesPlugin.Windows
         public override void Draw()
         {
             // Title
-            ImGui.Text("Yalms Speedometer Configuration");
+            ImGui.Text("Zoomies Speedometer Configuration");
             ImGui.Separator();
 
             // Speedometer style selection
@@ -63,7 +56,6 @@ namespace ZoomiesPlugin.Windows
                     case 1: // Nyan Cat
                         Plugin.SwitchToNyanSpeedometer();
                         break;
-                        // Add cases for additional speedometer types here
                 }
 
                 // Save the selection to configuration
@@ -82,6 +74,17 @@ namespace ZoomiesPlugin.Windows
 
                 // Update speedometers with new redline
                 Plugin.UpdateRedlineStart(redlineStart);
+            }
+
+            // Max speed configuration
+            float maxYalms = Configuration.MaxYalms;
+            if (ImGui.SliderFloat("Max Speed (yalms/s)", ref maxYalms, 10.0f, 100.0f, "%.1f"))
+            {
+                Configuration.MaxYalms = maxYalms;
+                Configuration.Save();
+
+                // Update speedometers with new max speed
+                Plugin.UpdateMaxSpeed(maxYalms);
             }
 
             // Needle smoothing configuration
@@ -120,6 +123,10 @@ namespace ZoomiesPlugin.Windows
                     // Hide all speedometers
                     Plugin.HideAllSpeedometers();
                 }
+
+                // Save to config
+                Configuration.ShowSpeedometerOnStartup = showSpeedometer;
+                Configuration.Save();
             }
 
             ImGui.Spacing();

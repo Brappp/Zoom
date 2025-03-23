@@ -2,17 +2,20 @@ using System;
 using System.Numerics;
 using Dalamud.Interface.Windowing;
 using ImGuiNET;
+using ZoomiesPlugin.Core;
+using ZoomiesPlugin.Helpers;
+using ZoomiesPlugin.Renderers;
 
-namespace ZoomiesPlugin.Windows
+namespace ZoomiesPlugin.UI
 {
-    public class YalmsWindow : Window, IDisposable
+    public class SpeedometerWindow : Window, IDisposable
     {
         // Helper classes for calculations and rendering
         private readonly YalmsCalculator yalmsCalculator;
-        private readonly YalmsRenderer yalmsRenderer;
+        private readonly ClassicRenderer classicRenderer;
 
         // Constructor
-        public YalmsWindow() : base("Yalms##YalmsWindow",
+        public SpeedometerWindow() : base("Zoomies##SpeedometerWindow",
             ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse |
             ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoTitleBar |
             ImGuiWindowFlags.NoResize)
@@ -21,17 +24,20 @@ namespace ZoomiesPlugin.Windows
             Size = new Vector2(350, 350);
             SizeCondition = ImGuiCond.FirstUseEver;
 
+            // Disable ESC key closing the window
+            RespectCloseHotkey = false;
+
             // Get configuration
             var config = Plugin.PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
 
             // Create helper classes
             yalmsCalculator = new YalmsCalculator();
-            yalmsRenderer = new YalmsRenderer();
+            classicRenderer = new ClassicRenderer();
 
             // Configure helpers from config
             yalmsCalculator.SetDamping(config.NeedleDamping);
-            yalmsRenderer.SetMaxYalms(config.MaxYalms);
-            yalmsRenderer.SetRedlineStart(config.RedlineStart);
+            classicRenderer.SetMaxYalms(config.MaxYalms);
+            classicRenderer.SetRedlineStart(config.RedlineStart);
         }
 
         // The Draw() method is called each frame to render the window
@@ -51,13 +57,7 @@ namespace ZoomiesPlugin.Windows
             }
 
             // Render the speedometer
-            yalmsRenderer.Render(yalmsCalculator.GetDisplayYalms());
-
-            // Check if close button was clicked
-            if (yalmsRenderer.WasCloseButtonClicked())
-            {
-                this.Toggle();
-            }
+            classicRenderer.Render(yalmsCalculator.GetDisplayYalms());
         }
 
         // Toggle method to show or hide the window
@@ -79,9 +79,27 @@ namespace ZoomiesPlugin.Windows
         }
 
         // Get the renderer for updating settings
-        public YalmsRenderer GetRenderer()
+        public ClassicRenderer GetRenderer()
         {
-            return yalmsRenderer;
+            return classicRenderer;
+        }
+
+        // Update damping from config
+        public void UpdateDamping(float damping)
+        {
+            yalmsCalculator.SetDamping(damping);
+        }
+
+        // Update max speed from config
+        public void UpdateMaxSpeed(float maxSpeed)
+        {
+            classicRenderer.SetMaxYalms(maxSpeed);
+        }
+
+        // Update redline from config
+        public void UpdateRedlineStart(float redlineStart)
+        {
+            classicRenderer.SetRedlineStart(redlineStart);
         }
     }
 }
