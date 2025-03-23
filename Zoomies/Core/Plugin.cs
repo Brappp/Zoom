@@ -14,10 +14,9 @@ namespace ZoomiesPlugin.Core
 {
     public sealed class Plugin : IDalamudPlugin
     {
-        // The plugin name.
         public string Name => "Zoomies";
 
-        // Plugin services injected via attributes.
+        // Plugin services
         [PluginService] internal static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
         [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
         [PluginService] internal static ICommandManager CommandManager { get; private set; } = null!;
@@ -25,101 +24,83 @@ namespace ZoomiesPlugin.Core
         [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
         [PluginService] internal static IPluginLog Log { get; private set; } = null!;
 
-        // Command name constant - only keeping one command
         private const string ZoomiesCommandName = "/zoomies";
 
-        // Public configuration object.
         public Configuration Configuration { get; init; }
 
-        // The WindowSystem manages all plugin windows.
         public readonly WindowSystem WindowSystem = new("ZoomiesPlugin");
 
-        // All windows
+        // UI windows
         private SpeedometerWindow SpeedometerWindow { get; init; }
         private NyanCatWindow NyanCatWindow { get; init; }
         private DebugWindow DebugWindow { get; init; }
         private ConfigWindow ConfigWindow { get; init; }
 
-        // Texture for the Nyan Cat
+        // Texture info for Nyan Cat
         private static IntPtr nyanCatTextureHandle = IntPtr.Zero;
         private static Vector2 nyanCatTextureSize = new Vector2(0, 0);
 
-        // Texture loading fields
+        // Texture loading
         private string textureToLoad = string.Empty;
         private bool isCustomTexture = false;
 
-        // Plugin constructor.
         public Plugin()
         {
-            // Load the configuration
+            // Load settings
             Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
 
-            // Check if nyan.png exists and load it
+            // Check for necessary images
             CheckForNyanCatImage();
-
-            // Check for user-provided custom images
             LoadUserImages();
 
-            // Create windows
+            // Create UI windows
             SpeedometerWindow = new SpeedometerWindow();
             NyanCatWindow = new NyanCatWindow();
-
-            // Create debug window with reference to calculator
             DebugWindow = new DebugWindow(SpeedometerWindow.GetCalculator(), this);
-
-            // Create config window
             ConfigWindow = new ConfigWindow(this);
 
-            // Add windows to the WindowSystem
+            // Register windows
             WindowSystem.AddWindow(SpeedometerWindow);
             WindowSystem.AddWindow(NyanCatWindow);
             WindowSystem.AddWindow(DebugWindow);
             WindowSystem.AddWindow(ConfigWindow);
 
-            // Register command handler - just one command now
+            // Register command
             CommandManager.AddHandler(ZoomiesCommandName, new CommandInfo(OnZoomiesCommand)
             {
                 HelpMessage = "Toggle the Zoomies speedometer or open the UI if using /zoomies config"
             });
 
-            // Subscribe to UI drawing event
+            // Register event handlers
             PluginInterface.UiBuilder.Draw += DrawUI;
-
-            // Use config button to open config UI
             PluginInterface.UiBuilder.OpenConfigUi += ToggleConfigUI;
-
-            // Use main button to toggle speedometer
             PluginInterface.UiBuilder.OpenMainUi += ToggleMainUI;
-
-            // Subscribe to login/logout events for auto-show/hide
             ClientState.Login += OnLogin;
             ClientState.Logout += OnLogout;
 
-            // Set initial state based on config and login status
+            // Initialize UI state
             if (ClientState.IsLoggedIn)
             {
                 SetInitialState();
             }
             else
             {
-                // Hide all windows if not logged in
                 HideAllSpeedometers();
                 ConfigWindow.IsOpen = false;
                 DebugWindow.IsOpen = false;
             }
 
-            // Log an informational message
             Log.Information($"===Zoomies Plugin loaded===");
         }
 
         private void SetInitialState()
         {
-            // Hide all windows initially
+            // Start with all windows closed
             SpeedometerWindow.IsOpen = false;
             NyanCatWindow.IsOpen = false;
             DebugWindow.IsOpen = false;
 
-            // Show the appropriate speedometer if configured
+            // Show speedometer if configured
             if (Configuration.ShowSpeedometerOnStartup)
             {
                 switch (Configuration.SelectedSpeedometerType)
@@ -134,12 +115,11 @@ namespace ZoomiesPlugin.Core
             }
         }
 
-        // Login event handler
+        // Game login event
         private void OnLogin()
         {
             Log.Information("Login detected, showing speedometer if configured.");
 
-            // Restore the appropriate speedometer if configured
             if (Configuration.ShowSpeedometerOnStartup)
             {
                 switch (Configuration.SelectedSpeedometerType)
@@ -154,26 +134,21 @@ namespace ZoomiesPlugin.Core
             }
         }
 
-        // Logout event handler
+        // Game logout event
         private void OnLogout(int type, int code)
         {
             Log.Information($"Logout detected. Type: {type}, Code: {code}");
 
-            // Hide all speedometers
-            SpeedometerWindow.IsOpen = false;
-            NyanCatWindow.IsOpen = false;
-
-            // Optionally hide other windows too
+            HideAllSpeedometers();
             ConfigWindow.IsOpen = false;
             DebugWindow.IsOpen = false;
         }
 
-        // Check if nyan.png exists in the plugin directory and load it
+        // Look for nyan.png in plugin folder
         private void CheckForNyanCatImage()
         {
             try
             {
-                // Build the path to the image file
                 string pluginPath = PluginInterface.AssemblyLocation.DirectoryName ?? string.Empty;
                 string imagePath = Path.Combine(pluginPath, "nyan.png");
 
@@ -181,7 +156,6 @@ namespace ZoomiesPlugin.Core
 
                 if (File.Exists(imagePath))
                 {
-                    // Just store the path for now - we'll load the texture on the main thread
                     LoadTextureOnNextDraw(imagePath, false);
                 }
                 else
@@ -196,30 +170,25 @@ namespace ZoomiesPlugin.Core
             }
         }
 
-        // Check for and load user-provided custom images
+        // Check for user-provided custom images
         private void LoadUserImages()
         {
             try
             {
-                // Get plugin config directory
                 string configDir = PluginInterface.GetPluginConfigDirectory();
                 string imagesDir = Path.Combine(configDir, "images");
 
-                // Create the directory if it doesn't exist
                 if (!Directory.Exists(imagesDir))
                 {
                     Directory.CreateDirectory(imagesDir);
                     Log.Information($"Created images directory at: {imagesDir}");
-                    return; // No images to load yet
+                    return;
                 }
 
-                // Check if user has provided a custom nyan.png
                 string customNyanPath = Path.Combine(imagesDir, "nyan.png");
                 if (File.Exists(customNyanPath))
                 {
                     Log.Information($"Found custom nyan.png at: {customNyanPath}");
-
-                    // Schedule loading on the main thread
                     LoadTextureOnNextDraw(customNyanPath, true);
                 }
             }
@@ -229,14 +198,14 @@ namespace ZoomiesPlugin.Core
             }
         }
 
-        // Schedule a texture to be loaded on the main thread
+        // Queue texture loading for next draw cycle
         private void LoadTextureOnNextDraw(string path, bool isCustom)
         {
             textureToLoad = path;
             isCustomTexture = isCustom;
         }
 
-        // Static methods to access the texture info
+        // Texture access methods
         public static IntPtr GetNyanCatTextureHandle()
         {
             return nyanCatTextureHandle;
@@ -247,30 +216,29 @@ namespace ZoomiesPlugin.Core
             return nyanCatTextureSize;
         }
 
-        // Dispose method
         public void Dispose()
         {
-            // Remove all windows
+            // Remove windows
             WindowSystem.RemoveAllWindows();
 
-            // Dispose of windows
+            // Clean up resources
             SpeedometerWindow.Dispose();
             NyanCatWindow.Dispose();
             DebugWindow.Dispose();
             ConfigWindow.Dispose();
 
-            // Unsubscribe from events
+            // Unsubscribe events
             ClientState.Login -= OnLogin;
             ClientState.Logout -= OnLogout;
             PluginInterface.UiBuilder.Draw -= DrawUI;
             PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfigUI;
             PluginInterface.UiBuilder.OpenMainUi -= ToggleMainUI;
 
-            // Remove command handler
+            // Remove command
             CommandManager.RemoveHandler(ZoomiesCommandName);
         }
 
-        // Command handler - now supports args for config
+        // Handle /zoomies command
         private void OnZoomiesCommand(string command, string args)
         {
             if (args.Trim().ToLower() == "config")
@@ -283,10 +251,10 @@ namespace ZoomiesPlugin.Core
             }
         }
 
-        // Draw UI
+        // Handle UI drawing
         private void DrawUI()
         {
-            // If we have a texture to load, do it now (we're on the main thread)
+            // Load texture if needed
             if (!string.IsNullOrEmpty(textureToLoad))
             {
                 try
@@ -310,15 +278,13 @@ namespace ZoomiesPlugin.Core
                         Log.Information("Using drawn Nyan Cat as fallback");
                 }
 
-                // Clear the texture path to prevent loading it again
                 textureToLoad = string.Empty;
             }
 
-            // Draw windows
             WindowSystem.Draw();
         }
 
-        // UI toggling methods
+        // UI toggle methods
         public void ToggleConfigUI()
         {
             ConfigWindow.IsOpen = !ConfigWindow.IsOpen;
@@ -334,7 +300,7 @@ namespace ZoomiesPlugin.Core
             DebugWindow.IsOpen = !DebugWindow.IsOpen;
         }
 
-        // Speedometer management methods
+        // Speedometer controls
         public void ToggleSpeedometer()
         {
             bool isAnyVisible = IsAnySpeedometerVisible();
@@ -391,7 +357,7 @@ namespace ZoomiesPlugin.Core
             return SpeedometerWindow.IsOpen || NyanCatWindow.IsOpen;
         }
 
-        // Settings update methods
+        // Setting update methods
         public void UpdateMaxSpeed(float maxSpeed)
         {
             SpeedometerWindow.UpdateMaxSpeed(maxSpeed);

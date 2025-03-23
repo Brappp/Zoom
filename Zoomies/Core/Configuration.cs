@@ -9,13 +9,9 @@ namespace ZoomiesPlugin.Core
     {
         public int Version { get; set; } = 0;
 
-        // UI settings
+        // UI preferences
         public bool ShowSpeedometerOnStartup { get; set; } = true;
-
-        // Speedometer type (0 = Classic, 1 = Nyan Cat, etc.)
         public int SelectedSpeedometerType { get; set; } = 0;
-
-        // Tab settings
         public int SelectedTab { get; set; } = 0;
 
         // Speedometer settings
@@ -28,7 +24,7 @@ namespace ZoomiesPlugin.Core
         public bool ShowAdvancedInfo { get; set; } = false;
         public bool ShowHistoryTable { get; set; } = false;
 
-        // Save method to make saving less cumbersome
+        // Helper to save config
         public void Save()
         {
             Plugin.PluginInterface.SavePluginConfig(this);

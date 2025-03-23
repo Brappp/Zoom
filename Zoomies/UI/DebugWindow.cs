@@ -10,7 +10,7 @@ namespace ZoomiesPlugin.UI
 {
     public class DebugWindow : Window, IDisposable
     {
-        // Stores position and time data for debugging
+        // Speed calculation data
         private Vector3 currentPosition;
         private Vector3 previousPosition;
         private DateTime currentTime;
@@ -20,22 +20,16 @@ namespace ZoomiesPlugin.UI
         private float currentSpeed;
         private float displaySpeed;
 
-        // History table visibility
         private bool showHistoryTable = false;
-
-        // For display throttling
         private bool isPaused = false;
         private DateTime lastUpdateTime = DateTime.Now;
         private float updateFrequency = 0.25f; // Update every 250ms
 
-        // For displaying past calculations
+        // Store past calculations for analysis
         private readonly List<(DateTime time, float distance, float deltaTime, float speed)> calculationHistory;
         private const int MaxHistoryEntries = 20;
 
-        // Reference to the main calculator for getting values
         private readonly YalmsCalculator yalmsCalculator;
-
-        // Reference to the plugin
         private readonly Plugin plugin;
 
         public DebugWindow(YalmsCalculator calculator, Plugin pluginInstance) : base("Zoomies Speed Calculation##DebugWindow",
@@ -55,7 +49,7 @@ namespace ZoomiesPlugin.UI
             currentSpeed = 0;
             displaySpeed = 0;
 
-            // Get config settings
+            // Load user preferences
             var config = Plugin.PluginInterface.GetPluginConfig() as Configuration;
             if (config != null)
             {
@@ -68,28 +62,22 @@ namespace ZoomiesPlugin.UI
             var localPlayer = Plugin.ClientState.LocalPlayer;
             if (localPlayer != null)
             {
-                // Calculate our own raw speed for debug display
+                // Calculate raw speed for debug display
                 if (!isPaused)
                 {
-                    // Current time and position
                     Vector3 newPosition = localPlayer.Position;
                     DateTime newTime = DateTime.Now;
 
-                    // Only update if enough time has passed
                     if ((newTime - lastUpdateTime).TotalSeconds >= updateFrequency)
                     {
-                        // Copy current values to previous values
                         previousPosition = currentPosition;
                         previousTime = currentTime;
-
-                        // Set new current values
                         currentPosition = newPosition;
                         currentTime = newTime;
 
-                        // Calculate delta values
                         if (previousPosition != Vector3.Zero)
                         {
-                            // Calculate horizontal distance only
+                            // Only measure horizontal movement (X/Z)
                             Vector2 horizontalDelta = new Vector2(
                                 currentPosition.X - previousPosition.X,
                                 currentPosition.Z - previousPosition.Z
@@ -98,31 +86,26 @@ namespace ZoomiesPlugin.UI
                             distanceTraveled = horizontalDelta.Length();
                             deltaTime = (float)(currentTime - previousTime).TotalSeconds;
 
-                            // Calculate speed only if enough time passed
                             if (deltaTime > 0.01f)
                             {
-                                // Set the raw current speed
                                 currentSpeed = distanceTraveled / deltaTime;
 
-                                // Add to history if values changed significantly
+                                // Record significant movement for history
                                 if (distanceTraveled > 0.001f)
                                 {
                                     calculationHistory.Insert(0, (currentTime, distanceTraveled, deltaTime, currentSpeed));
 
-                                    // Keep history at manageable size
                                     if (calculationHistory.Count > MaxHistoryEntries)
                                         calculationHistory.RemoveAt(calculationHistory.Count - 1);
                                 }
                             }
                         }
 
-                        // Update last update time
                         lastUpdateTime = newTime;
                     }
                 }
 
-                // IMPORTANT: Always get the displayed speed directly from the calculator
-                // This needs to happen every frame, not just when we update our calculations
+                // Always get displayed speed from calculator
                 try
                 {
                     if (yalmsCalculator != null)
@@ -139,12 +122,12 @@ namespace ZoomiesPlugin.UI
                     ImGui.TextColored(new Vector4(1.0f, 0.2f, 0.2f, 1.0f), $"Error reading calculator: {ex.Message}");
                 }
 
-                // Pause/Resume button
+                // UI Controls
                 if (ImGui.Button(isPaused ? "Resume Updates" : "Pause Updates"))
                 {
                     isPaused = !isPaused;
 
-                    // If resuming from pause, force update on next frame
+                    // Force immediate update when resuming
                     if (!isPaused)
                     {
                         lastUpdateTime = DateTime.MinValue;
@@ -153,13 +136,11 @@ namespace ZoomiesPlugin.UI
 
                 ImGui.SameLine();
 
-                // Update frequency slider
                 ImGui.SetNextItemWidth(150);
                 ImGui.SliderFloat("Update Rate", ref updateFrequency, 0.1f, 1.0f, "%.1f sec");
 
                 ImGui.SameLine();
 
-                // History toggle button
                 if (ImGui.Button(showHistoryTable ? "Hide History" : "Show History"))
                 {
                     showHistoryTable = !showHistoryTable;
@@ -168,10 +149,8 @@ namespace ZoomiesPlugin.UI
 
                 ImGui.Separator();
 
-                // Draw the advanced view with technical details
                 DrawDetailedView();
 
-                // History table (optional)
                 if (showHistoryTable)
                 {
                     DrawHistoryTable();
@@ -185,12 +164,11 @@ namespace ZoomiesPlugin.UI
 
         private void DrawDetailedView()
         {
-            // Current smoothed speed display
+            // Speed displays
             ImGui.TextColored(new Vector4(1.0f, 1.0f, 0.2f, 1.0f), "Displayed Speed:");
             ImGui.SameLine();
             ImGui.TextColored(new Vector4(1.0f, 0.5f, 0.5f, 1.0f), $"{displaySpeed:F2} yalms/second");
 
-            // Current raw speed display
             ImGui.TextColored(new Vector4(1.0f, 1.0f, 0.2f, 1.0f), "Raw Speed:");
             ImGui.SameLine();
             ImGui.TextColored(new Vector4(0.5f, 1.0f, 0.5f, 1.0f), $"{currentSpeed:F2} yalms/second");
@@ -203,14 +181,12 @@ namespace ZoomiesPlugin.UI
             ImGui.Separator();
             ImGui.Spacing();
 
-            // Technical details section
+            // Technical details
             ImGui.TextColored(new Vector4(0.5f, 0.5f, 1.0f, 1.0f), "Technical Details:");
 
-            // Position details
             ImGui.Text($"Current Position: X:{currentPosition.X:F2} Y:{currentPosition.Y:F2} Z:{currentPosition.Z:F2}");
             ImGui.Text($"Previous Position: X:{previousPosition.X:F2} Y:{previousPosition.Y:F2} Z:{previousPosition.Z:F2}");
 
-            // Calculate and show delta
             Vector2 horizontalDelta = new Vector2(
                 currentPosition.X - previousPosition.X,
                 currentPosition.Z - previousPosition.Z
@@ -220,16 +196,13 @@ namespace ZoomiesPlugin.UI
             ImGui.Text($"Z Distance: {horizontalDelta.Y:F3}");
             ImGui.Text($"Horizontal Distance: √({horizontalDelta.X:F3}² + {horizontalDelta.Y:F3}²) = {horizontalDelta.Length():F3}");
 
-            // System info
             ImGui.Spacing();
             ImGui.Text($"Update Frequency: {updateFrequency:F2} seconds");
             ImGui.Text($"Time Since Last Update: {(DateTime.Now - lastUpdateTime).TotalSeconds:F2} seconds");
             ImGui.Text($"Damping Value: {GetDampingValue():F2}");
 
-            // Calculator debug info
             ImGui.TextColored(new Vector4(1.0f, 0.5f, 0.5f, 1.0f), $"Calculator instance: {(yalmsCalculator == null ? "NULL" : "Valid")}");
 
-            // Add note about measurement
             ImGui.Spacing();
             ImGui.TextColored(new Vector4(1.0f, 0.8f, 0.2f, 1.0f), "Note: Only horizontal movement (X/Z) is measured (no Y-axis/up-down)");
         }
@@ -267,7 +240,6 @@ namespace ZoomiesPlugin.UI
                 ImGui.EndTable();
             }
 
-            // Add button to clear history
             if (ImGui.Button("Clear History"))
             {
                 calculationHistory.Clear();
@@ -292,7 +264,7 @@ namespace ZoomiesPlugin.UI
 
         public void Dispose()
         {
-            // No unmanaged resources to clean up
+            // No resources to clean up
         }
     }
 }

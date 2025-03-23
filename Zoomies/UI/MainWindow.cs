@@ -9,16 +9,12 @@ namespace ZoomiesPlugin.UI
 {
     public class MainWindow : Window, IDisposable
     {
-        // Reference to plugin for settings
         private readonly Plugin plugin;
-
-        // Reference to other windows
         private readonly SpeedometerWindow speedometerWindow;
         private readonly NyanCatWindow nyanCatWindow;
         private readonly DebugWindow debugWindow;
         private readonly ConfigWindow configWindow;
 
-        // Constructor
         public MainWindow(Plugin pluginInstance,
                           SpeedometerWindow speedWindow,
                           NyanCatWindow nyanWindow,
@@ -31,11 +27,10 @@ namespace ZoomiesPlugin.UI
             debugWindow = debugWin;
             configWindow = configWin;
 
-            // Set window size and flags
             Size = new Vector2(300, 80);
             SizeCondition = ImGuiCond.FirstUseEver;
 
-            // Initialize based on configuration
+            // Apply saved settings
             var config = Plugin.PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
             if (config.ShowSpeedometerOnStartup)
             {
@@ -68,10 +63,9 @@ namespace ZoomiesPlugin.UI
             }
         }
 
-        // Show the speedometer of specified type
         public void ShowSpeedometer(int type)
         {
-            // Hide all first
+            // Hide all speedometers first
             speedometerWindow.IsOpen = false;
             nyanCatWindow.IsOpen = false;
 
@@ -87,7 +81,6 @@ namespace ZoomiesPlugin.UI
             }
         }
 
-        // Public method to toggle speedometer
         public void ToggleSpeedometer()
         {
             var config = Plugin.PluginInterface.GetPluginConfig() as Configuration;
@@ -107,7 +100,7 @@ namespace ZoomiesPlugin.UI
                     ShowSpeedometer(config.SelectedSpeedometerType);
                 }
 
-                // Update config
+                // Remember user preference
                 config.ShowSpeedometerOnStartup = !isAnyVisible;
                 config.Save();
             }
