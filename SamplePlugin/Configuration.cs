@@ -1,20 +1,29 @@
-﻿using Dalamud.Configuration;
+using Dalamud.Configuration;
 using Dalamud.Plugin;
 using System;
 
-namespace SamplePlugin;
-
-[Serializable]
-public class Configuration : IPluginConfiguration
+namespace ZoomiesPlugin
 {
-    public int Version { get; set; } = 0;
-
-    public bool IsConfigWindowMovable { get; set; } = true;
-    public bool SomePropertyToBeSavedAndWithADefault { get; set; } = true;
-
-    // the below exist just to make saving less cumbersome
-    public void Save()
+    [Serializable]
+    public class Configuration : IPluginConfiguration
     {
-        Plugin.PluginInterface.SavePluginConfig(this);
+        public int Version { get; set; } = 0;
+
+        // UI settings
+        public bool ShowSpeedometerOnStartup { get; set; } = true;
+
+        // Speedometer type (0 = Classic, 1 = Nyan Cat, etc.)
+        public int SelectedSpeedometerType { get; set; } = 0;
+
+        // Speedometer settings
+        public float MaxYalms { get; set; } = 20.0f;
+        public float RedlineStart { get; set; } = 16.0f;
+        public float NeedleDamping { get; set; } = 0.1f;
+
+        // Save method to make saving less cumbersome
+        public void Save()
+        {
+            Plugin.PluginInterface.SavePluginConfig(this);
+        }
     }
 }
